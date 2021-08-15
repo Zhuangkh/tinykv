@@ -73,7 +73,11 @@ type StandAloneStorageReader struct {
 }
 
 func (s StandAloneStorageReader) GetCF(cf string, key []byte) ([]byte, error) {
-	return engine_util.GetCFFromTxn(s.txn, cf, key)
+	val, err := engine_util.GetCFFromTxn(s.txn, cf, key)
+	if err == badger.ErrKeyNotFound {
+		return nil, nil
+	}
+	return val, err
 }
 
 func (s StandAloneStorageReader) IterCF(cf string) engine_util.DBIterator {
