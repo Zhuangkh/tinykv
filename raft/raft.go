@@ -178,6 +178,13 @@ func (r *Raft) sendAppend(to uint64) bool {
 // sendHeartbeat sends a heartbeat RPC to the given peer.
 func (r *Raft) sendHeartbeat(to uint64) {
 	// Your Code Here (2A).
+	msg := pb.Message{
+		MsgType: pb.MessageType_MsgHeartbeat,
+		From:    r.id,
+		To:      to,
+		Term:    r.Term,
+	}
+	r.msgs = append(r.msgs, msg)
 }
 
 // tick advances the internal logical clock by a single tick.
@@ -188,16 +195,30 @@ func (r *Raft) tick() {
 // becomeFollower transform this peer's state to Follower
 func (r *Raft) becomeFollower(term uint64, lead uint64) {
 	// Your Code Here (2A).
+	r.State = StateFollower
+	r.Term = term
+	r.Lead = lead
+	r.Vote = None
 }
 
 // becomeCandidate transform this peer's state to candidate
 func (r *Raft) becomeCandidate() {
 	// Your Code Here (2A).
+	r.State = StateCandidate
+	r.Lead = None
+	r.Term++
+	r.Vote = r.id
+	r.votes = make(map[uint64]bool)
+	r.votes[r.id] = true
+
 }
 
 // becomeLeader transform this peer's state to leader
 func (r *Raft) becomeLeader() {
 	// Your Code Here (2A).
+	r.State = StateLeader
+	r.Vote = None
+	r.Lead = r.id
 	// NOTE: Leader should propose a noop entry on its term
 }
 
@@ -207,9 +228,33 @@ func (r *Raft) Step(m pb.Message) error {
 	// Your Code Here (2A).
 	switch r.State {
 	case StateFollower:
+		err := r.stepFollower(m)
+		if err != nil {
+			return err
+		}
 	case StateCandidate:
+		err := r.stepCandidate(m)
+		if err != nil {
+			return err
+		}
 	case StateLeader:
+		err := r.stepLeader(m)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
+}
+
+func (r *Raft) stepLeader(m pb.Message) error {
+	return nil
+}
+
+func (r *Raft) stepCandidate(m pb.Message) error {
+	return nil
+}
+
+func (r *Raft) stepFollower(m pb.Message) error {
 	return nil
 }
 
@@ -221,6 +266,24 @@ func (r *Raft) handleAppendEntries(m pb.Message) {
 // handleHeartbeat handle Heartbeat RPC request
 func (r *Raft) handleHeartbeat(m pb.Message) {
 	// Your Code Here (2A).
+	if m.Term != None && m.Term < r.Term {
+		r.sendHeartbeatResponse(m.From, false)
+		return
+	}
+
+	//TODO:update heartbeat elapsed
+	r.sendHeartbeatResponse(m.From, true)
+
+}
+
+func (r *Raft) sendHeartbeatResponse(to uint64, reject bool) {
+	msg := pb.Message{
+		MsgType: pb.MessageType_MsgHeartbeatResponse,
+		From:    r.id,
+		To:      to,
+		Reject:  reject,
+	}
+	r.msgs = append(r.msgs, msg)
 }
 
 // handleSnapshot handle Snapshot RPC request
